@@ -1,6 +1,6 @@
 library(stringr)
 
-fix_data <- function (elem) {
+update_data <- function (elem) {
   str_w_spaces <- str_replace_all(elem, " ", "")
   if (is.na(as.numeric(str_w_spaces))) {
     return(elem)
@@ -9,6 +9,9 @@ fix_data <- function (elem) {
   }
 }
 
-# Read file
+fix_data <- function (data) {
+  return(data.frame((apply(data, MARGIN=c(1,2), FUN = update_data))))
+}
+
 myfile = read.csv('test_data_01.csv')
-print(data.frame((apply(myfile, MARGIN=c(1,2), FUN = fix_data))))
+print(fix_data(myfile))
