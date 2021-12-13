@@ -1,0 +1,151 @@
+---
+title: "Лабораторная работа 3. Задание 2. Вариант 6"
+author: "Дроздова Дарья, 5030102/80401"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+Файл ExpImp.RData содержит данные Росстата экспорт/импорт продукции по регионам России (млн долл. США). Нужно привести данные к формату tidydata. Отобразить значения суммарного экспорта и импорта по регионам в виде столбчатой диаграммы [сгруппировав значения по названию региона]. Экспорт и импорт обозначить разными цветами. Сделать график, на котором значения экспорта и импорта располагаются по разные стороны относительно оси x. Подписать величины экспорта и импорта.
+
+***
+Импортируем библиотеки
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(stringr)
+```
+
+***
+Загружаем данные
+
+```{r}
+load("ExpImp.RData")
+```
+
+***
+Функция для получения информации о суммарном экспорте и импорте по регионам
+
+*Параметры*:
+
++ data - исходный датафрейм
+
+*Возвращает*: таблицу со столбцами Регион/СумИмпорт/СумЭкспорт
+
+```{r}
+create_data <- function(data) {
+  data_district = data[grep('область$', data$Регион),]
+  print(data_district)
+  import = apply(data_district[grep('Импорт$', names(data_district))], 1, function(x) sum(as.numeric(str_replace_all(x, "-", "0"))))
+  export = apply(data_district[grep('Экспорт$', names(data_district))], 1, function(x) sum(as.numeric(str_replace_all(x, "-", "0"))))
+  data_district['СумИмпорт'] = import
+  data_district['СумЭкспорт'] = export
+  regions_import_export = data_district %>%
+    select(1,14,15)
+  
+  return (regions_import_export)
+}
+```
+
+***
+***
+Функция для построения графика
+
+*Параметры*:
+
++ data - tidydata с информацией для построения графика
++ x_data - значения x
++ y_data - значения y
++ fill_data - значения для легенды
++ title - заголовок графика
++ x_title - подпись для оси х
++ y_title - подпись для оси y
++ fill_title - заголовок легенды
+
+*Возвращает*: построенный график (подписи оси х повернуты на 90 градусов)
+
+```{r}
+build_graph <- function(data, x_data, y_data, fill_data, title, x_title, y_title, fill_title)  {
+  return (ggplot(data, aes(x = x_data, y = y_data, fill = fill_data)) + geom_col(position = "dodge") +
+            xlab(x_title) + ylab(y_title) + theme(axis.text.x = element_text(angle = 90)) +
+            ggtitle(title) + scale_fill_discrete(name = fill_title))
+}
+```
+
+***
+Функция для построения графика с подписями
+
+*Параметры*:
+
++ data - tidydata с информацией для построения графика
++ x_data - значения x
++ y_data - значения y
++ fill_data - значения для легенды
++ label_data - значения для подписи
++ title - заголовок графика
++ x_title - подпись для оси х
++ y_title - подпись для оси y
++ fill_title - заголовок легенды
+
+*Возвращает*: построенный график
+```{r}
+build_cord_graph <- function(data, x_data, y_data, fill_data, label_data, title, x_title, y_title, fill_title)  {
+  ggplot(data, aes(x = x_data, y = y_data, group = fill_data)) + 
+    geom_col(aes(fill = fill_data)) +
+    xlab(x_title) + ylab(y_title) +
+    ggtitle(title) + scale_fill_discrete(name = fill_title) + coord_flip() +
+    geom_text(aes(label = label_data), position = position_stack(vjust = 0.5))
+}
+```
+
+***
+Преобразование данных к формату tidydata
+```{r}
+regions = create_data(ExpImp)
+regions_ti <- regions %>%
+  pivot_longer(names_to = 'export_import',
+               values_to = 'values',
+               cols = -Регион)
+```
+
+***
+Вызов функций
+```{r fig.height=10, fig.width=15, echo=FALSE}
+export_import_regions = build_graph(regions_ti, 
+                             regions_ti$Регион, 
+                             regions_ti$values,
+                             regions_ti$export_import,
+                             'Суммарный экспорт и импорт по регионам России',
+                             'Регионы',
+                             'Объем экспорта',
+                             'Экспорт/импорт')
+export_import_regions
+export_import_regions + facet_grid(. ~ regions_ti$export_import)
+
+
+sliderInput("exp_imp", "Регионы по суммарному объему экспорта и импорта:", 2000, min = 1, max = 50000)
+renderPlot({
+  main_regions = subset(regions_ti, regions_ti$values > input$exp_imp)
+  export_import_regions_main = build_cord_graph(main_regions, 
+                                              main_regions$Регион, 
+                                              main_regions$values,
+                                              main_regions$export_import,
+                                              round(main_regions$values/1000, 2),
+                                              'Ведущие регионы России по объему экспорта и импорта',
+                                              'Регионы',
+                                              'Объем экспорта',
+                                              'Экспорт/импорт')
+  export_import_regions_main
+})
+```
+
+
+
+
+
